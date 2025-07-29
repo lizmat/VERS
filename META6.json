@@ -5,7 +5,8 @@
   ],
   "build-depends": [
   ],
-  "depends": [ "Identity::Utils:ver<0.0.25+>:auth<zef:lizmat>"
+  "depends": [
+    "Identity::Utils:ver<0.0.25+>:auth<zef:lizmat>"
   ],
   "description": "Support for the VErsion Range Specifier URI scheme",
   "license": "Artistic-2.0",
@@ -16,8 +17,12 @@
   },
   "resources": [
   ],
-  "source-url": "",
-  "tags": [ "VERS","PURL","SBOM","SW_VERS"
+  "source-url": "https://github.com/lizmat/VERS.git",
+  "tags": [
+    "VERS",
+    "PURL",
+    "SBOM",
+    "SW_VERS"
   ],
   "test-depends": [
   ],
