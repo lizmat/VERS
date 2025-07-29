@@ -1,0 +1,4 @@
+.precomp/
+/VERS-*
+/releases/
+*.rakucov

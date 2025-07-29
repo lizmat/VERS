@@ -1,0 +1,25 @@
+{
+  "auth": "zef:lizmat",
+  "authors": [
+    "Elizabeth Mattijsen"
+  ],
+  "build-depends": [
+  ],
+  "depends": [ "Identity::Utils:ver<0.0.25+>:auth<zef:lizmat>"
+  ],
+  "description": "Support for the VErsion Range Specifier URI scheme",
+  "license": "Artistic-2.0",
+  "name": "VERS",
+  "perl": "6.d",
+  "provides": {
+    "VERS": "lib/VERS.rakumod"
+  },
+  "resources": [
+  ],
+  "source-url": "",
+  "tags": [ "VERS","PURL","SBOM","SW_VERS"
+  ],
+  "test-depends": [
+  ],
+  "version": "0.0.1"
+}
