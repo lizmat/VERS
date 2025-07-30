@@ -1,6 +1,72 @@
 use Test;
-use VERS;
+use VERS;  # also makes VersionConstraint available
 
-pass "replace me";
+my @simple =
+  "*", (1..10).pick ~ ".0", Any,
+   "1.0", "1.0", "2.0",
+  ">1.0", "2.0", "1.0",
+ ">=2.0", "2.0", "1.0",
+ "!=1.0", "2.0", "1.0",
+  "<2.0", "1.0", "2.0",
+ "<=1.0", "1.0", "2.0",
+;
 
-done-testing;
+plan 2 * (@simple / 3) + 8;
+
+sub check-vc($source, $ok, $nok?, $stringified = $source) is test-assertion {
+    subtest "Checking constraint '$source'" => {
+        plan $nok ?? 6 !! 4;
+
+        my $vc = VersionConstraint.new($source);
+        isa-ok $vc, VersionConstraint;
+
+        is-deeply $ok         ~~ $vc, True, "is '$ok' acceptable";
+        is-deeply $ok.Version ~~ $vc, True, "is 'v$ok' acceptable";
+
+        if $nok {
+            is-deeply $nok         ~~ $vc, False, "is '$nok' NOT acceptable";
+            is-deeply $nok.Version ~~ $vc, False, "is 'v$nok' NOT acceptable";
+        }
+
+        is $vc, $stringified, "does '$source' stringify ok";
+    }
+}
+
+sub check-vers($source, $ok, $nok, $stringified = $source) is test-assertion {
+    subtest "Checking VERS '$source'" => {
+        plan $nok ?? 6 !! 4;
+        my $vers = VERS.new($source);
+        isa-ok $vers, VERS;
+
+        is-deeply $ok         ~~ $vers, True, "is '$ok' acceptable";
+        is-deeply $ok.Version ~~ $vers, True, "is 'v$ok' acceptable";
+
+        if $nok {
+            is-deeply $nok         ~~ $vers, False, "is '$nok' NOT acceptable";
+            is-deeply $nok.Version ~~ $vers, False, "is 'v$nok' NOT acceptable";
+        }
+
+        is $vers, $stringified, "does '$source' stringify ok";
+    }
+}
+
+for @simple -> $source, $ok, $no {
+    check-vc $source, $ok, $no;
+    check-vers "vers:raku/$source", $ok, $no;
+}
+
+check-vers "vers:raku/3.0|1.0|2.0", "1.0", "4.0", "vers:raku/1.0 | 2.0 | 3.0";
+
+check-vers "vers:raku/>2.0|>1.0",   "2.0", "1.0", "vers:raku/>1.0";
+check-vers "vers:raku/>=2.0|>1.0",  "2.0", "1.0", "vers:raku/>1.0";
+check-vers "vers:raku/<2.0|<1.0",   "1.0", "2.0", "vers:raku/<2.0";
+check-vers "vers:raku/<=2.0|<1.0",  "1.0", "3.0", "vers:raku/<=2.0";
+
+check-vers "vers:raku/!=2.0|!=1.0", "1.1", "1.0", "vers:raku/!=1.0 | !=2.0";
+check-vers "vers:raku/>=2.0|!=1.0", "2.0", "1.0", "vers:raku/!=1.0 | >=2.0";
+
+todo "huh";
+check-vers "vers:raku/<2.0|>1.0", "1.0", "2.1", "vers:raku/>1.0 | <2.0";
+
+
+# vim: expandtab shiftwidth=4
