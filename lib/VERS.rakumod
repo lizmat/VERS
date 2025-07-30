@@ -20,24 +20,34 @@ my sub decode(Str() $_) {
     :global
 }
 
+# Quick lookup of comparators to infix ops
+my constant %infix =
+  "<"  => &[<],
+  "<=" => &[<=],
+  "==" => &[==],
+  "!=" => &[!=],
+  ">=" => &[>=],
+  ">"  => &[>],
+;
+
 #- VersionConstraint -----------------------------------------------------------
 class VersionConstraint:ver<0.0.1>:auth<zef:lizmat> {
-    has $.op      is built(:bind);
-    has $.version is built(:bind);
+    has Str $.comperator = '==';
+    has     $.version is built(:bind);
+    has     &!op;
 
     submethod TWEAK(:$version is copy --> Nil) {
 
-        if $!op {
-            $!op := ::('&infix:«' ~ $!op ~ '»') unless $!op ~~ Callable;
-        }
+        &!op := %infix{$!comperator}
+          // die "Unrecognized comperator '$!comperator'";
 
         if $version ~~ Version {
-            $!op := &whatever if $version.whatever;
-            $!op := &[>=]     if $version.plus;
+            &!op := &whatever if $version.whatever;
+            &!op := &[>=]     if $version.plus;
         }
         elsif $version {
             $version = decode($version);
-            $!op := $version eq '*' ?? &whatever !! &[==] unless $!op;
+            &!op := &whatever if $version eq '*';
 
             # Convert to Version object to get correct semantics
             $!version := $version.Version;
@@ -49,22 +59,26 @@ class VersionConstraint:ver<0.0.1>:auth<zef:lizmat> {
 
     multi method new(VersionConstraint: Str() $spec) {
         $spec.starts-with(">=" | "<=" | "!=")
-          ?? self.bless(:op($spec.substr(0,2)), :version($spec.substr(2)))
+          ?? self.bless(
+               :comperator($spec.substr(0,2)), :version($spec.substr(2))
+             )
           !! $spec.starts-with(">" | "<")
-            ?? self.bless(:op($spec.substr(0,1)), :version($spec.substr(1)))
+            ?? self.bless(
+                 :comperator($spec.substr(0,1)), :version($spec.substr(1))
+               )
             !! self.bless(:version($spec))
     }
 
     multi method ACCEPTS(VersionConstraint:D: Version(Cool) $topic --> Bool:D) {
-        $!op($topic, $!version)
+        &!op($topic, $!version)
     }
 
     multi method Str(VersionConstraint:D:) {
-        $!op =:= &whatever
+        &!op =:= &whatever
           ?? "*"
-          !! $!op =:= &[==]
+          !! &!op =:= &[==]
             ?? ~$!version
-            !! "$!op.gist.substr(8, *-1)$!version"
+            !! "$!comperator$!version"
     }
 }
 
@@ -72,10 +86,10 @@ class VersionConstraint:ver<0.0.1>:auth<zef:lizmat> {
 class VERS:ver<0.0.1>:auth<zef:lizmat> {
     has Str $.scheme = 'vers';
     has Str $.type        is required;
-    has     @.constraints is required is List;
+    has     @.constraints is required;
 
     # Create an argument hash for the given Package URL
-    method !hashify(Str:D $spec) {
+    sub hashify(Str:D $spec) {
         my %args;
         my Str $remainder = $spec.subst(/ \s+ /, :g);;
 
@@ -106,42 +120,87 @@ class VERS:ver<0.0.1>:auth<zef:lizmat> {
             die "Must have a type specified";
         }
 
-        die "Must have at least one version" unless $remainder;
-
-        my @constraints = $remainder.split("|").map: {
-            VersionConstraint.new($_) if $_
-        }
-
-        # XXX check sanity / optimize list of constraints
-
-        %args<constraints> := @constraints.List;
+        %args<constraints> :=
+          check-constraints $remainder.split("|", :skip-empty);
 
         %args
     }
 
-    multi method new(VERS: Str:D $spec) {
-        self.bless: |self!hashify($spec)
+    # Check the validity of the constraints
+    sub check-constraints(@constraints is copy) {
+
+        @constraints = @constraints.map({
+            $_ ~~ VersionConstraint ?? $_ !! VersionConstraint.new($_)
+        }).sort(*.version);
+
+        die "Must have at least one version" unless @constraints;
+
+        if @constraints.head.version eq '*' {
+            die "Can only have '*' as the only version constraint"
+              unless @constraints == 1;
+        }
+ 
+        if @constraints>>.version.repeated -> @repeated {
+            die "Version '@repeated.join("', '")' occurred more than once";
+        }
+
+dd @constraints;
+        # Weed out any sequential > >= < <=
+        @constraints = @constraints
+          .reverse
+          .squish(:as(*.comperator.substr(0,1)))
+          .reverse;
+dd @constraints;
+
+        my $comperator = @constraints.head.comperator;
+        for 1..^@constraints -> $i {
+            my $next := @constraints[$i].comperator;
+
+            sub check-next(@oks) {
+                die "Comperator '$next' can not follow '$comperator' in @constraints.join(" | ")"
+                  unless $next eq any(@oks);
+            }
+
+            if $comperator eq '==' {
+                check-next « == > >= »;
+            }
+            elsif $comperator eq "<" | "<=" {
+                check-next « > >= »;
+            }
+            elsif $comperator eq ">" | ">=" {
+                check-next « < <= »;
+            }
+            $comperator = $next;
+        }
+
+        @constraints
     }
 
-    submethod TWEAK() {
-        die "All constraints must VersionConstraint objects"
-          unless @!constraints.are(VersionConstraint);
+    multi method new(VERS:) {
+        %_<constraints> := check-constraints($_) with %_<constraints>;
+        self.bless: |%_
+    }
+    multi method new(VERS: Str:D $spec) {
+        self.bless: |hashify($spec)
     }
 
     method from-identity(VERS: Str:D $id) {
-        self.bless(:type<raku>, :constraints(version($id) // "*".Version))
+        self.bless(
+          :type<raku>,
+          :constraints(VersionConstraint.new(
+            :version(version($id) // "*".Version)
+          ))
+        )
     }
 
-    multi method Str( VERS:D:) { "$!scheme:$!type/@!constraints.join("|")" }
+    multi method Str( VERS:D:) { "$!scheme:$!type/@!constraints.join(" | ")" }
     multi method gist(VERS:D:) { self.Str }
 
-    method CALL-ME(Str:D $spec --> Bool:D) { (try self!hashify($spec)).Bool }
+    method CALL-ME(Str:D $spec --> Bool:D) { (try hashify($spec)).Bool }
 
     multi method ACCEPTS(VERS:D: Version(Cool) $topic --> Bool:D) {
-#        $!op($topic, $!version)
+        $topic ~~ any(@!constraints)
     }
 }
-
-say "1.04" ~~ VERS.new("vers:raku/ 1.01| >1.03");
 
 # vim: expandtab shiftwidth=4
