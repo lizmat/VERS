@@ -8,13 +8,103 @@ VERS - Support for the VErsion Range Specifier URI scheme
 
 =begin code :lang<raku>
 use VERS;
+
+my $vers = VERS.new("vers:raku/>=1.0");
+say v1.0 ~~ $vers;  # True
+say v0.9 ~~ $vers;  # False
 =end code
 
 =head1 DESCRIPTION
 
-The VERS distribution provides an implementation of the B<VE>rsion
+The C<VERS> distribution provides an implementation of the B<VE>rsion
 B<R>ange B<S>pecifier scheme, as described in the
 L<PURL specification|https://github.com/package-url/purl-spec/blob/main/VERSION-RANGE-SPEC.rst>.
+
+It is intended to provide support for version checking for all software
+types supported by the
+L<Package URL standard|https://github.com/package-url/purl-spec/tree/main?tab=readme-ov-file#context>.
+
+It currently supports all software packages that use the same version
+logic as Raku (based on L<Version|https://docs.raku.org/type/Version>
+object comparison semantics).
+
+=head1 VERS
+
+=begin code :lang<raku>
+my $vers = VERS.new("vers:raku/>=1.0");
+say v1.0 ~~ $vers;  # True
+say v0.9 ~~ $vers;  # False
+=end code
+
+The C<Vers> class encapsulates the logic for parsing
+L<VERS specification strings|https://github.com/package-url/purl-spec/blob/main/VERSION-RANGE-SPEC.rst#version-constraint>
+and is intended to be used as a target in a smart-match to verify
+whether a given version is matched by the C<vers> specification.
+
+An error will be thrown if the given C<vers> specification is not valid.
+
+The C<VERS> object stringifies to the canonical representation of the
+C<vers> specification.
+
+=begin code
+say VERS("vers:raku/>=1.0");  # True
+say VERS("foobar");           # False
+=end code
+
+If one is only interested in whether a C<vers> string is valid or not,
+one can call the C<VERS> class object with the C<vers> string: it will
+return C<True> if the C<vers> string is valid, and C<False> if it is
+not.
+
+=head2 method new
+
+=begin code :lang<raku>
+# accept any version 1.x below 2.0
+my $from-string = VERS.new("vers:raku/>=1.0|<2.0");
+
+my $from-nameds = VERS.new(:type<raku>, :constraints(v1.0+, "<2.0"));
+=end code
+
+The C<new> method can be called to create a new C<VERS> object.  It
+either takes a C<vers> specification string, or it can be called using
+normal named arguments semantics.  In the latter case, it expects the
+C<:type> and C<:constraints> named arguments to be specified.  Note
+that when using named arguments, the C<:constraints> named arguments
+expects one of more strings or C<Version> objects.
+
+=head2 method from-Version
+
+=begin code :lang<raku>
+# accept any version equal to or higher than 1.x
+my $vers = VERS.from-Version(v1.0+);
+say $vers;  # vers:raku/>=1.0
+=end code
+
+The C<from-Version> method can be called to create a new C<VERS>
+object from a C<Version> object.
+
+=head1 HELPER CLASSES
+
+=head2 VersionConstraint
+
+=begin code :lang<raku>
+my $from-spec = VersionConstraint.new("!=1.0");
+
+my $from-nameds = VersionConstraint.new(
+  :comparator<!=>, :version<1.0>
+);
+=end code
+
+The C<VersionConstraint> class encapsulates the logic needed to check
+a single constraint.  Its instances can be used as arguments to the
+C<:constraints> named argument to C<VERS.new>.
+
+It can either be instantiated by a C<vers> version constraint, or by
+named arguments.  In the latter case, the optional C<:comparator>
+named argument expects a string representing the comparator to be used
+(any of: C<==>, C<!=>, C«<», C«<=», C«>», C«>=», defaulting to C<==>).
+The required C<:version> named argument should be either a C<Version>
+object or a string representing a version.
 
 =head1 AUTHOR
 

@@ -1,7 +1,3 @@
-use Identity::Utils:ver<0.0.25+>:auth<zef:lizmat> <
-  version
->;
-
 #- helper subroutines ----------------------------------------------------------
 
 # Is a given string a valid identifier
@@ -38,8 +34,8 @@ class DefaultComparator {
 
 #- VersionConstraint -----------------------------------------------------------
 class VersionConstraint:ver<0.0.1>:auth<zef:lizmat> {
-    has Str $.comparator = '==';
-    has     $.version is built(:bind);
+    has Str $.comparator is built(:bind) = '==';
+    has     $.version    is built(:bind);
     has     &!op;
     has     &!equal;
 
@@ -55,9 +51,13 @@ class VersionConstraint:ver<0.0.1>:auth<zef:lizmat> {
 
         if $version ~~ Version {
             &!op := &whatever if $version.whatever;
-            &!op := &[>=]     if $version.plus;
+            if $version.plus {
+                $!comparator := '>=';
+                &!op         := $compare-logic.more-or-equal;
+                $!version    := $version.Str.chop.Version;
+            }
         }
-        elsif $version {
+        elsif $version {  # UNCOVERABLE
             $version = decode($version);
             &!op := &whatever if $version eq '*';
 
@@ -94,6 +94,10 @@ class VersionConstraint:ver<0.0.1>:auth<zef:lizmat> {
     method higheror(VersionConstraint:D:) { $!comparator.starts-with(">") }
     method loweror( VersionConstraint:D:) { $!comparator.starts-with("<") }
 
+    method CALL-ME(VersionConstraint:U: $spec) {
+        (try self.new($spec)).Bool
+    }
+
     multi method Str(VersionConstraint:D:) {
         &!op =:= &whatever
           ?? "*"
@@ -101,6 +105,7 @@ class VersionConstraint:ver<0.0.1>:auth<zef:lizmat> {
             ?? ~$!version
             !! "$!comparator$!version"
     }
+    multi method gist(VersionConstraint:D:) { self.Str }
 }
 
 #- VERS ------------------------------------------------------------------------
@@ -154,16 +159,18 @@ class VERS:ver<0.0.1>:auth<zef:lizmat> {
 
         @constraints = @constraints.map({
             $_ ~~ $version-logic ?? $_ !! $version-logic.new($_)
-        }).sort(*.version);
+        }).sort({ .version unless .negator });
 
         die "Must have at least one version" unless @constraints;
 
+        # If the only constraint is *, remove all constraints
         if @constraints.head.version eq '*' {
             @constraints == 1
               ?? (return ())
               !! die "Can only have '*' as the only version constraint";
         }
 
+        # Check for duplicate version values
         if @constraints>>.version.repeated -> @repeated {
             die "Version '@repeated.join("', '")' occurred more than once";
         }
@@ -171,21 +178,22 @@ class VERS:ver<0.0.1>:auth<zef:lizmat> {
         # Weed out any sequential > >= < <= as an optimization
         my $this  = @constraints.head.comparator.substr(0,1);
         my int $i = 1;
-        while $i < @constraints {
+        while $i < @constraints {  # UNCOVERABLE
             my $next = @constraints[$i].comparator.substr(0,1);
             if $this eq '>' && $next eq '>' {
                 @constraints.splice($i,1);
                 ++$i;
             }
-            elsif $this eq '<' && $next eq '<' {
+            elsif $this eq '<' && $next eq '<' {  # UNCOVERABLE
                 @constraints.splice($i - 1, 1);
             }
             else {
                 ++$i;
             }
-            $this = $next;
+            $this = $next;  # UNCOVERABLE
         }
 
+        # Check the order of constraints
         my $comparator = @constraints.head.comparator;
         for 1..^@constraints -> $i {
             my $next := @constraints[$i].comparator;
@@ -198,10 +206,10 @@ class VERS:ver<0.0.1>:auth<zef:lizmat> {
             if $comparator eq '==' {
                 check-next « == > >= »;
             }
-            elsif $comparator eq "<" | "<=" {
+            elsif $comparator eq "<" | "<=" {  # UNCOVERABLE
                 check-next « > >= »;
             }
-            elsif $comparator eq ">" | ">=" {
+            elsif $comparator eq ">" | ">=" {  # UNCOVERABLE
                 check-next « < <= »;
             }
             $comparator = $next;
@@ -219,23 +227,23 @@ class VERS:ver<0.0.1>:auth<zef:lizmat> {
         self.bless: |hashify($spec, %_<version-logic>)
     }
 
-    method from-identity(VERS: Str:D $id) {
+    method from-Version(VERS:U: Version() $version) {
         self.bless(
           :type<raku>,
-          :constraints(VersionConstraint.new(
-            :version(version($id) // "*".Version)
-          ))
+          :constraints(VersionConstraint.new(:$version))
         )
     }
 
-    multi method Str( VERS:D:) {
+    multi method Str(VERS:D:) {
         "$!scheme:$!type/" ~ (@!constraints.join(" | ") || "*")
     }
     multi method gist(VERS:D:) {
         self.Str
     }
 
-    method CALL-ME(Str:D $spec --> Bool:D) { (try hashify($spec)).Bool }
+    method CALL-ME(VERS:U: Str:D $spec --> Bool:D) {
+        (try hashify($spec)).Bool
+    }
 
     multi method ACCEPTS(VERS:D: Version(Cool) $topic --> Bool:D) {
         if @!constraints {
@@ -245,8 +253,9 @@ class VERS:ver<0.0.1>:auth<zef:lizmat> {
                 if .negator {
                     return False if .equal($topic);
                 }
-                elsif .equallor {
+                elsif .equallor {  # UNCOVERABLE
                     return True if .equal($topic);
+                    @ranges.push: $_;
                 }
                 else {
                     @ranges.push: $_;
@@ -257,7 +266,7 @@ class VERS:ver<0.0.1>:auth<zef:lizmat> {
                 return $topic ~~ @ranges.head if @ranges == 1;
 
                 my $current = @ranges.head;
-                return True if $topic ~~ $current;
+                return True if $current.loweror && $topic ~~ $current;
 
                 my int $i = 1;
                 for 1..^@ranges.end -> $i {
@@ -265,9 +274,10 @@ class VERS:ver<0.0.1>:auth<zef:lizmat> {
                     if $current.higheror && $next.loweor {
                         return True if $topic ~~ $current && $topic ~~ $next;
                     }
+                    $current = $next;
                 }
 
-                return True if $topic ~~ @ranges.tail;
+                return True if $current.higheror && $topic ~~ @ranges.tail;
             }
 
             $topic ~~ @!constraints.tail;

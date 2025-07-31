@@ -11,11 +11,13 @@ my @simple =
  "<=1.0", "1.0", "2.0",
 ;
 
-plan 2 * (@simple / 3) + 8;
+plan 2 * (@simple / 3) + 27;
 
 sub check-vc($source, $ok, $nok?, $stringified = $source) is test-assertion {
     subtest "Checking constraint '$source'" => {
-        plan $nok ?? 6 !! 4;
+        plan $nok ?? 8 !! 6;
+
+        is-deeply VersionConstraint($source), True, 'is the source ok';
 
         my $vc = VersionConstraint.new($source);
         isa-ok $vc, VersionConstraint;
@@ -28,13 +30,17 @@ sub check-vc($source, $ok, $nok?, $stringified = $source) is test-assertion {
             is-deeply $nok.Version ~~ $vc, False, "is 'v$nok' NOT acceptable";
         }
 
-        is $vc, $stringified, "does '$source' stringify ok";
+        is $vc.Str,  $stringified, "does '$source' stringify ok";
+        is $vc.gist, $stringified, "does '$source' stringify ok";
     }
 }
 
 sub check-vers($source, $ok, $nok, $stringified = $source) is test-assertion {
     subtest "Checking VERS '$source'" => {
-        plan $nok ?? 6 !! 4;
+        plan $nok ?? 8 !! 6;
+
+        is-deeply VERS($source), True, 'is the source ok';
+
         my $vers = VERS.new($source);
         isa-ok $vers, VERS;
 
@@ -46,7 +52,8 @@ sub check-vers($source, $ok, $nok, $stringified = $source) is test-assertion {
             is-deeply $nok.Version ~~ $vers, False, "is 'v$nok' NOT acceptable";
         }
 
-        is $vers, $stringified, "does '$source' stringify ok";
+        is $vers.Str,  $stringified, "does '$source' stringify ok";
+        is $vers.gist, $stringified, "does '$source' gist ok";
     }
 }
 
@@ -55,18 +62,46 @@ for @simple -> $source, $ok, $no {
     check-vers "vers:raku/$source", $ok, $no;
 }
 
-check-vers "vers:raku/3.0|1.0|2.0", "1.0", "4.0", "vers:raku/1.0 | 2.0 | 3.0";
+check-vers "vers:raku/3.0|1.0|2.0", "1.0", "1.1", "vers:raku/1.0 | 2.0 | 3.0";
+check-vers "vers:raku/3.0||1.0||2.0", "1.0", "1.1", "vers:raku/1.0 | 2.0 | 3.0";
 
 check-vers "vers:raku/>2.0|>1.0",   "2.0", "1.0", "vers:raku/>1.0";
 check-vers "vers:raku/>=2.0|>1.0",  "2.0", "1.0", "vers:raku/>1.0";
 check-vers "vers:raku/<2.0|<1.0",   "1.0", "2.0", "vers:raku/<2.0";
 check-vers "vers:raku/<=2.0|<1.0",  "1.0", "3.0", "vers:raku/<=2.0";
 
-check-vers "vers:raku/!=2.0|!=1.0", "1.1", "1.0", "vers:raku/!=1.0 | !=2.0";
+check-vers "vers:raku/!=2.0|!=1.0", "1.1", "1.0", "vers:raku/!=2.0 | !=1.0";
 check-vers "vers:raku/>=2.0|!=1.0", "2.0", "1.0", "vers:raku/!=1.0 | >=2.0";
 
-todo "huh";
-check-vers "vers:raku/<2.0|>1.0", "1.0", "2.1", "vers:raku/>1.0 | <2.0";
+check-vers "vers:raku/<2.0|>1.0", "1.0", "2.1",
+  "vers:raku/>1.0 | <2.0";
+check-vers "vers:raku/>2.0|<=1.0", "1.0", "2.0",
+  "vers:raku/<=1.0 | >2.0";
+check-vers "vers:raku/!=3.0|<2.0|>1.0", "1.0", "3.0",
+  "vers:raku/!=3.0 | >1.0 | <2.0";
 
+for
+  "*",    "vers:raku/*",
+  "1.0",  "vers:raku/1.0",
+  "1.0+", "vers:raku/>=1.0"
+-> $source, $vers {
+    is VERS.from-Version($source),         $vers, "$source from string";
+    is VERS.from-Version($source.Version), $vers, "$source from Version";
+}
+
+for
+  \(),
+  \(:scheme(Any)),
+  "foobar",
+  "vers:",
+  "vers:raku",
+  "vers:raku/|||",
+  "vers:raku/*|1.0",
+  "vers:raku/1.0|1.0",
+  "vers:raku/>=1.0|1.0",
+  "vers:raku/>=1.0|!2.0"
+{
+    dies-ok { VERS.new(|$_) }, "'$_.raku()' dies as expected";
+}
 
 # vim: expandtab shiftwidth=4
