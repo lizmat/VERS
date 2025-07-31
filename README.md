@@ -34,9 +34,11 @@ say v1.0 ~~ $vers;  # True
 say v0.9 ~~ $vers;  # False
 ```
 
-The `Vers` class encapsulates the logic for parsing [VERS specification strings](https://github.com/package-url/purl-spec/blob/main/VERSION-RANGE-SPEC.rst#version-constraint) and is intended to be used as a target in a smart-match to verify whether a given version is matched by the `vers` specification.
+The `VERS` class encapsulates the logic for parsing [VERS specification strings](https://github.com/package-url/purl-spec/blob/main/VERSION-RANGE-SPEC.rst#version-constraint) and is intended to be used as a target in a smart-match to verify whether a given version is matched by the `vers` specification.
 
 An error will be thrown if the given `vers` specification is not valid.
+
+    say VERS.new("vers:raku/<=2.0|>=1.0");  # vers:raku/>=1.0 | <=2.0
 
 The `VERS` object stringifies to the canonical representation of the `vers` specification.
 

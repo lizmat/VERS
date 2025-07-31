@@ -36,12 +36,16 @@ say v1.0 ~~ $vers;  # True
 say v0.9 ~~ $vers;  # False
 =end code
 
-The C<Vers> class encapsulates the logic for parsing
+The C<VERS> class encapsulates the logic for parsing
 L<VERS specification strings|https://github.com/package-url/purl-spec/blob/main/VERSION-RANGE-SPEC.rst#version-constraint>
 and is intended to be used as a target in a smart-match to verify
 whether a given version is matched by the C<vers> specification.
 
 An error will be thrown if the given C<vers> specification is not valid.
+
+=begin code
+say VERS.new("vers:raku/<=2.0|>=1.0");  # vers:raku/>=1.0 | <=2.0
+=end code
 
 The C<VERS> object stringifies to the canonical representation of the
 C<vers> specification.
