@@ -19,7 +19,7 @@ say v0.9 ~~ $vers;  # False
 DESCRIPTION
 ===========
 
-The `VERS` distribution provides an implementation of the **VE**rsion **R**ange **S**pecifier scheme, as described in the [PURL specification](https://github.com/package-url/purl-spec/blob/main/VERSION-RANGE-SPEC.rst).
+The `VERS` distribution provides an implementation of the **VE**rsion **R**ange **S**pecifier scheme, as described in the [VERS specification](https://github.com/package-url/vers-spec/blob/main/VERSION-RANGE-SPEC.rst).
 
 It is intended to provide support for version checking for all software types supported by the [Package URL standard](https://github.com/package-url/purl-spec/tree/main?tab=readme-ov-file#context).
 

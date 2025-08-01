@@ -62,23 +62,23 @@ for @simple -> $source, $ok, $no {
     check-vers "vers:raku/$source", $ok, $no;
 }
 
-check-vers "vers:raku/3.0|1.0|2.0", "1.0", "1.1", "vers:raku/1.0 | 2.0 | 3.0";
-check-vers "vers:raku/3.0||1.0||2.0", "1.0", "1.1", "vers:raku/1.0 | 2.0 | 3.0";
+check-vers "vers:raku/3.0|1.0|2.0", "1.0", "1.1", "vers:raku/1.0|2.0|3.0";
+check-vers "vers:raku/3.0||1.0||2.0", "1.0", "1.1", "vers:raku/1.0|2.0|3.0";
 
 check-vers "vers:raku/>2.0|>1.0",   "2.0", "1.0", "vers:raku/>1.0";
 check-vers "vers:raku/>=2.0|>1.0",  "2.0", "1.0", "vers:raku/>1.0";
 check-vers "vers:raku/<2.0|<1.0",   "1.0", "2.0", "vers:raku/<2.0";
 check-vers "vers:raku/<=2.0|<1.0",  "1.0", "3.0", "vers:raku/<=2.0";
 
-check-vers "vers:raku/!=2.0|!=1.0", "1.1", "1.0", "vers:raku/!=2.0 | !=1.0";
-check-vers "vers:raku/>=2.0|!=1.0", "2.0", "1.0", "vers:raku/!=1.0 | >=2.0";
+check-vers "vers:raku/!=2.0|!=1.0", "1.1", "1.0", "vers:raku/!=2.0|!=1.0";
+check-vers "vers:raku/>=2.0|!=1.0", "2.0", "1.0", "vers:raku/!=1.0|>=2.0";
 
 check-vers "vers:raku/<2.0|>1.0", "1.0", "2.1",
-  "vers:raku/>1.0 | <2.0";
+  "vers:raku/>1.0|<2.0";
 check-vers "vers:raku/>2.0|<=1.0", "1.0", "2.0",
-  "vers:raku/<=1.0 | >2.0";
+  "vers:raku/<=1.0|>2.0";
 check-vers "vers:raku/!=3.0|<2.0|>1.0", "1.0", "3.0",
-  "vers:raku/!=3.0 | >1.0 | <2.0";
+  "vers:raku/!=3.0|>1.0|<2.0";
 
 for
   "*",    "vers:raku/*",

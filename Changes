@@ -2,5 +2,8 @@ Revision history for VERS
 
 {{$NEXT}}
 
+0.0.2  2025-08-01T21:33:46+02:00
+    - Canonical version should be without spaces
+
 0.0.1  2025-07-31T13:26:54+02:00
     - Initial version

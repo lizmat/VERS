@@ -33,7 +33,7 @@ class DefaultComparator {
 }
 
 #- VersionConstraint -----------------------------------------------------------
-class VersionConstraint:ver<0.0.1>:auth<zef:lizmat> {
+class VersionConstraint:ver<0.0.2>:auth<zef:lizmat> {
     has Str $.comparator is built(:bind) = '==';
     has     $.version    is built(:bind);
     has     &!op;
@@ -109,7 +109,7 @@ class VersionConstraint:ver<0.0.1>:auth<zef:lizmat> {
 }
 
 #- VERS ------------------------------------------------------------------------
-class VERS:ver<0.0.1>:auth<zef:lizmat> {
+class VERS:ver<0.0.2>:auth<zef:lizmat> {
     has Str $.scheme = 'vers';
     has Str $.type        is required;
     has     @.constraints is required;
@@ -235,7 +235,7 @@ class VERS:ver<0.0.1>:auth<zef:lizmat> {
     }
 
     multi method Str(VERS:D:) {
-        "$!scheme:$!type/" ~ (@!constraints.join(" | ") || "*")
+        "$!scheme:$!type/" ~ (@!constraints.join("|") || "*")
     }
     multi method gist(VERS:D:) {
         self.Str
