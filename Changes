@@ -1,6 +1,9 @@
 Revision history for VERS
 
 {{$NEXT}}
+    - Reworked internals to support VERS::Type sets of
+      classes, for each of the types that are supported
+      by the VERS standard.
 
 0.0.2  2025-08-01T21:33:46+02:00
     - Canonical version should be without spaces

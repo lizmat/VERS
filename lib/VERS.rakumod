@@ -1,13 +1,6 @@
-#- helper subroutines ----------------------------------------------------------
+use VERS::Type:ver<0.0.3>:auth<zef:lizmat>;
 
-# Is a given string a valid identifier
-my sub is-identifier($_) {
-    .contains: /^ <[a..z A..Z]> <[a..z A..Z 0..9 . _ -]>+ $/
-}
-
-# Dummy infix operator that will always match
-my sub whatever($, $ --> True) { }
-
+#- helpers ---------------------------------------------------------------------
 # Quick-and-dirty percent-decode a string
 my sub decode(Str() $_) {
   .subst:
@@ -16,77 +9,17 @@ my sub decode(Str() $_) {
     :global
 }
 
-# Quick lookup of comparators to infix ops
-my constant %infix = «
-  < less  <= less-or-equal  == equal  != not-equal  >= more-or-equal  > more
-»;
-
-#- DefaultComparator -----------------------------------------------------------
-# Does the mapping of comparison logic to actual Callables
-class DefaultComparator {
-    method less()           { &[<]  }
-    method less-or-equal()  { &[<=] }
-    method equal()          { &[==] }
-    method not-equal()      { &[!=] }
-    method more-or-equal()  { &[>=] }
-    method more()           { &[>]  }
-}
-
 #- VersionConstraint -----------------------------------------------------------
-class VersionConstraint:ver<0.0.2>:auth<zef:lizmat> {
-    has Str $.comparator is built(:bind) = '==';
-    has     $.version    is built(:bind);
-    has     &!op;
-    has     &!equal;
+class VersionConstraint {
+    has Str $.comparator is built(:bind) is required;
+    has     $.version    is built(:bind) is required;
 
-    submethod TWEAK(
-      :$version is copy,
-      :$compare-logic = DefaultComparator
-    --> Nil) {
-
-        my $op-name := %infix{$!comparator}
-          // die "Unrecognized comparator '$!comparator'";
-        &!op    := $compare-logic."$op-name"();
-        &!equal := $compare-logic.equal;
-
-        if $version ~~ Version {
-            &!op := &whatever if $version.whatever;
-            if $version.plus {
-                $!comparator := '>=';
-                &!op         := $compare-logic.more-or-equal;
-                $!version    := $version.Str.chop.Version;
-            }
-        }
-        elsif $version {  # UNCOVERABLE
-            $version = decode($version);
-            &!op := &whatever if $version eq '*';
-
-            # Convert to Version object to get correct semantics
-            $!version := $version.Version;
-        }
-        else {
-            die "Must have at least a version specified";
-        }
-    }
-
-    multi method new(VersionConstraint: Str() $spec) {
-        $spec.starts-with(">=" | "<=" | "!=")
-          ?? self.bless(
-               :comparator($spec.substr(0,2)), :version($spec.substr(2))
-             )
-          !! $spec.starts-with(">" | "<")
-            ?? self.bless(
-                 :comparator($spec.substr(0,1)), :version($spec.substr(1))
-               )
-            !! self.bless(:version($spec))
-    }
-
-    multi method ACCEPTS(VersionConstraint:D: Version(Cool) $topic --> Bool:D) {
-        &!op($topic, $!version)
+    multi method ACCEPTS(VersionConstraint:D: Any:D $topic --> Bool:D) {
+        $topic."$!comparator"($!version)
     }
 
     method equal(VersionConstraint:D: $topic) {
-        &!equal($topic, $!version)
+        $topic."=="($!version)
     }
 
     method negator( VersionConstraint:D:) { $!comparator.starts-with("!") }
@@ -94,29 +27,21 @@ class VersionConstraint:ver<0.0.2>:auth<zef:lizmat> {
     method higheror(VersionConstraint:D:) { $!comparator.starts-with(">") }
     method loweror( VersionConstraint:D:) { $!comparator.starts-with("<") }
 
-    method CALL-ME(VersionConstraint:U: $spec) {
-        (try self.new($spec)).Bool
-    }
-
     multi method Str(VersionConstraint:D:) {
-        &!op =:= &whatever
-          ?? "*"
-          !! &!op =:= &[==]
-            ?? ~$!version
-            !! "$!comparator$!version"
+        $!comparator eq '=='
+          ?? ~$!version
+          !! "$!comparator$!version"
     }
-    multi method gist(VersionConstraint:D:) { self.Str }
 }
 
 #- VERS ------------------------------------------------------------------------
-class VERS:ver<0.0.2>:auth<zef:lizmat> {
+class VERS:ver<0.0.3>:auth<zef:lizmat> {
     has Str $.scheme = 'vers';
-    has Str $.type        is required;
+    has     $.type        is required;
     has     @.constraints is required;
-    has     $.comparator-logic = DefaultComparator;
 
     # Create an argument hash for the given Package URL
-    sub hashify(Str:D $spec, $version-logic?) {
+    sub hashify(Str:D $spec) {
         my %args;
         my Str $remainder = $spec.subst(/ \s+ /, :g);;
 
@@ -136,10 +61,11 @@ class VERS:ver<0.0.2>:auth<zef:lizmat> {
 
         # type
         with $remainder.index("/") -> $index {
-            my $type = $remainder.substr(0,$index).lc;
-            die "Invalid type: $type" unless is-identifier($type);  # XXX check for known type
+            my $part := $remainder.substr(0,$index).lc;
+            my $type := VERS::Type($part);
+            die "Invalid type: $part" if $type ~~ Failure;
 
-             %args<type> = $type;
+            %args<type> = $type;
 
             $remainder .= substr($index + 1);
         }
@@ -147,27 +73,62 @@ class VERS:ver<0.0.2>:auth<zef:lizmat> {
             die "Must have a type specified";
         }
 
-        %args<constraints> :=
-          check-constraints $remainder.split("|", :skip-empty), $version-logic;
+        if $remainder.split("|", :skip-empty) -> @constraints {
+            %args<constraints> := @constraints.List;
+        }
+        else {
+            die "Must have at least one constraint specified";
+        }
 
         %args
     }
 
+    multi method new(VERS: Str:D $spec) {
+        self.bless: |hashify(decode($spec))
+    }
+
     # Check the validity of the constraints
-    sub check-constraints(@constraints is copy, $version-logic is copy) {
-        $version-logic = VersionConstraint if $version-logic<> =:= Any;
+    submethod TWEAK(--> Nil) {
+        # Nothing to check: no constraints means anything goes
+        return unless @!constraints;
 
-        @constraints = @constraints.map({
-            $_ ~~ $version-logic ?? $_ !! $version-logic.new($_)
-        }).sort({ .version unless .negator });
+        my $Version := VERS::Type($!type).Version;
+        my @constraints = @!constraints.map({
+            if $_ ~~ VersionConstraint {
+                $_
+            }
+            else {
+                my $comparator;
+                my $version;
+                if .starts-with(">=" | "<=" | "!=") {
+                    $comparator := .substr(0,2);
+                    $version    := .substr(2);
+                }
+                elsif .starts-with(">" | "<") {  # UNCOVERABLE
+                    $comparator := .substr(0,1);
+                    $version    := .substr(1);
+                }
+                else {
+                    $comparator := '==';  # UNCOVERABLE
+                    $version    := $_;
+                }
+                $version := $Version.new($version);
 
-        die "Must have at least one version" unless @constraints;
+                VersionConstraint.new(:$comparator, :$version)
+            }
+        }).sort({
+            $^a.negator
+              ?? Less
+              !! $^a.version.cmp($^b.version)
+        });
 
         # If the only constraint is *, remove all constraints
         if @constraints.head.version eq '*' {
-            @constraints == 1
-              ?? (return ())
-              !! die "Can only have '*' as the only version constraint";
+            if @constraints == 1  {
+                @!constraints := ();
+                return;
+            }
+            die "Can only have '*' as the only version constraint";
         }
 
         # Check for duplicate version values
@@ -215,22 +176,29 @@ class VERS:ver<0.0.2>:auth<zef:lizmat> {
             $comparator = $next;
         }
 
-        @constraints
+        @!constraints := @constraints.List;
     }
 
-    multi method new(VERS:) {
-        %_<constraints> := check-constraints($_, %_<version-logic>)
-          with %_<constraints>;
-        self.bless: |%_
-    }
-    multi method new(VERS: Str:D $spec) {
-        self.bless: |hashify($spec, %_<version-logic>)
-    }
+    method from-Version(VERS:U: Version() $version is copy) {
 
-    method from-Version(VERS:U: Version() $version) {
+        # No constraints if a whatever version
+        return self.bless(:type<raku>, :constraints(())) if $version.whatever;
+
+        # Set comparator and version string
+        my $comparator;
+        if $version.plus {
+            $comparator := '>=';  # UNCOVERABLE
+            $version     = $version.Str.chop;
+        }
+        else {
+            $comparator := '==';  # UNCOVERABLE
+            $version    .= Str;
+        }
+        $version = VERS::Type("raku").Version($version);
+
         self.bless(
           :type<raku>,
-          :constraints(VersionConstraint.new(:$version))
+          :constraints(VersionConstraint.new(:$comparator, :$version))
         )
     }
 
@@ -245,7 +213,10 @@ class VERS:ver<0.0.2>:auth<zef:lizmat> {
         (try hashify($spec)).Bool
     }
 
-    multi method ACCEPTS(VERS:D: Version(Cool) $topic --> Bool:D) {
+    multi method ACCEPTS(VERS:D: Str:D $topic --> Bool:D) {
+        self.ACCEPTS(VERS::Type($!type).Version($topic))
+    }
+    multi method ACCEPTS(VERS:D: Any:D $topic --> Bool:D) {
         if @!constraints {
             my @ranges;
 

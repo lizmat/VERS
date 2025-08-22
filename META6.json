@@ -6,13 +6,16 @@
   "build-depends": [
   ],
   "depends": [
+    "Version::Raku:ver<0.0.1+>:auth<zef:lizmat>",
+    "Version::Repology:ver<0.0.3+>:auth<zef:lizmat>"
   ],
   "description": "Support for the VErsion Range Specifier URI scheme",
   "license": "Artistic-2.0",
   "name": "VERS",
   "perl": "6.d",
   "provides": {
-    "VERS": "lib/VERS.rakumod"
+    "VERS": "lib/VERS.rakumod",
+    "VERS::Type": "lib/VERS/Type.rakumod"
   },
   "resources": [
   ],
@@ -25,5 +28,5 @@
   ],
   "test-depends": [
   ],
-  "version": "0.0.2"
+  "version": "0.0.3"
 }

@@ -11,45 +11,21 @@ my @simple =
  "<=1.0", "1.0", "2.0",
 ;
 
-plan 2 * (@simple / 3) + 27;
-
-sub check-vc($source, $ok, $nok?, $stringified = $source) is test-assertion {
-    subtest "Checking constraint '$source'" => {
-        plan $nok ?? 8 !! 6;
-
-        is-deeply VersionConstraint($source), True, 'is the source ok';
-
-        my $vc = VersionConstraint.new($source);
-        isa-ok $vc, VersionConstraint;
-
-        is-deeply $ok         ~~ $vc, True, "is '$ok' acceptable";
-        is-deeply $ok.Version ~~ $vc, True, "is 'v$ok' acceptable";
-
-        if $nok {
-            is-deeply $nok         ~~ $vc, False, "is '$nok' NOT acceptable";
-            is-deeply $nok.Version ~~ $vc, False, "is 'v$nok' NOT acceptable";
-        }
-
-        is $vc.Str,  $stringified, "does '$source' stringify ok";
-        is $vc.gist, $stringified, "does '$source' stringify ok";
-    }
-}
+plan 29 + @simple / 3;
 
 sub check-vers($source, $ok, $nok, $stringified = $source) is test-assertion {
     subtest "Checking VERS '$source'" => {
-        plan $nok ?? 8 !! 6;
+        plan $nok ?? 6 !! 5;
 
         is-deeply VERS($source), True, 'is the source ok';
 
         my $vers = VERS.new($source);
         isa-ok $vers, VERS;
 
-        is-deeply $ok         ~~ $vers, True, "is '$ok' acceptable";
-        is-deeply $ok.Version ~~ $vers, True, "is 'v$ok' acceptable";
+        is-deeply $ok ~~ $vers, True, "is '$ok' acceptable";
 
         if $nok {
-            is-deeply $nok         ~~ $vers, False, "is '$nok' NOT acceptable";
-            is-deeply $nok.Version ~~ $vers, False, "is 'v$nok' NOT acceptable";
+            is-deeply $nok ~~ $vers, False, "is '$nok' NOT acceptable";
         }
 
         is $vers.Str,  $stringified, "does '$source' stringify ok";
@@ -58,7 +34,6 @@ sub check-vers($source, $ok, $nok, $stringified = $source) is test-assertion {
 }
 
 for @simple -> $source, $ok, $no {
-    check-vc $source, $ok, $no;
     check-vers "vers:raku/$source", $ok, $no;
 }
 
@@ -103,5 +78,10 @@ for
 {
     dies-ok { VERS.new(|$_) }, "'$_.raku()' dies as expected";
 }
+
+nok VERS::Type("alpm").Version ~~ Failure,
+  '.Version returns a non-Failure';
+nok VERS::Type("alpm").Version("1.0") ~~ Failure,
+  '.Version("1.0") returns a non-Failure';
 
 # vim: expandtab shiftwidth=4
