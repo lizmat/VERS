@@ -1,9 +1,12 @@
 Revision history for VERS
 
 {{$NEXT}}
+
+0.0.3  2025-08-22T11:59:58+02:00
     - Reworked internals to support VERS::Type sets of
       classes, for each of the types that are supported
       by the VERS standard.
+    - Added dependency on Version::Raku and Version::Repology
 
 0.0.2  2025-08-01T21:33:46+02:00
     - Canonical version should be without spaces
