@@ -1,4 +1,4 @@
-use VERS::Type:ver<0.0.3>:auth<zef:lizmat>;
+use VERS::Type:ver<0.0.4>:auth<zef:lizmat>;
 
 #- helpers ---------------------------------------------------------------------
 # Quick-and-dirty percent-decode a string
@@ -35,7 +35,7 @@ class VersionConstraint {
 }
 
 #- VERS ------------------------------------------------------------------------
-class VERS:ver<0.0.3>:auth<zef:lizmat> {
+class VERS:ver<0.0.4>:auth<zef:lizmat> {
     has Str $.scheme = 'vers';
     has     $.type        is required;
     has     @.constraints is required;
@@ -60,9 +60,10 @@ class VERS:ver<0.0.3>:auth<zef:lizmat> {
         }
 
         # type
+        my $type;
         with $remainder.index("/") -> $index {
             my $part := $remainder.substr(0,$index).lc;
-            my $type := VERS::Type($part);
+            $type := VERS::Type($part);
             die "Invalid type: $part" if $type ~~ Failure;
 
             %args<type> = $type;
@@ -73,7 +74,10 @@ class VERS:ver<0.0.3>:auth<zef:lizmat> {
             die "Must have a type specified";
         }
 
-        if $remainder.split("|", :skip-empty) -> @constraints {
+        if $remainder.split("|", :skip-empty).map({$type.denatify($_)})
+          -> @constraints {
+            die "Can only have one and only '*' constraint"
+              if @constraints > 1 && @constraints.first(*.contains('*'));
             %args<constraints> := @constraints.List;
         }
         else {
@@ -92,7 +96,7 @@ class VERS:ver<0.0.3>:auth<zef:lizmat> {
         # Nothing to check: no constraints means anything goes
         return unless @!constraints;
 
-        my $Version := VERS::Type($!type).Version;
+        my $Version := $!type.Version;
         my @constraints = @!constraints.map({
             if $_ ~~ VersionConstraint {
                 $_
@@ -179,27 +183,8 @@ class VERS:ver<0.0.3>:auth<zef:lizmat> {
         @!constraints := @constraints.List;
     }
 
-    method from-Version(VERS:U: Version() $version is copy) {
-
-        # No constraints if a whatever version
-        return self.bless(:type<raku>, :constraints(())) if $version.whatever;
-
-        # Set comparator and version string
-        my $comparator;
-        if $version.plus {
-            $comparator := '>=';  # UNCOVERABLE
-            $version     = $version.Str.chop;
-        }
-        else {
-            $comparator := '==';  # UNCOVERABLE
-            $version    .= Str;
-        }
-        $version = VERS::Type("raku").Version($version);
-
-        self.bless(
-          :type<raku>,
-          :constraints(VersionConstraint.new(:$comparator, :$version))
-        )
+    method from-Version(VERS:U: Str() $spec is copy) {
+        self.new("vers:raku/" ~ VERS::Type("raku").denatify($spec))
     }
 
     multi method Str(VERS:D:) {
@@ -214,7 +199,7 @@ class VERS:ver<0.0.3>:auth<zef:lizmat> {
     }
 
     multi method ACCEPTS(VERS:D: Str:D $topic --> Bool:D) {
-        self.ACCEPTS(VERS::Type($!type).Version($topic))
+        self.ACCEPTS($!type.Version($topic))
     }
     multi method ACCEPTS(VERS:D: Any:D $topic --> Bool:D) {
         if @!constraints {

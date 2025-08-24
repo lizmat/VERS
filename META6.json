@@ -7,7 +7,8 @@
   ],
   "depends": [
     "Version::Raku:ver<0.0.1+>:auth<zef:lizmat>",
-    "Version::Repology:ver<0.0.3+>:auth<zef:lizmat>"
+    "Version::Repology:ver<0.0.5+>:auth<zef:lizmat>",
+    "Version::Semver:ver<0.0.1+>:auth<zef:lizmat>"
   ],
   "description": "Support for the VErsion Range Specifier URI scheme",
   "license": "Artistic-2.0",
@@ -28,5 +29,5 @@
   ],
   "test-depends": [
   ],
-  "version": "0.0.3"
+  "version": "0.0.4"
 }

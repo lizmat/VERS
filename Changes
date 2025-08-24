@@ -1,6 +1,7 @@
 Revision history for VERS
 
 {{$NEXT}}
+    - Added dependency on Version::Semver
 
 0.0.3  2025-08-22T11:59:58+02:00
     - Reworked internals to support VERS::Type sets of
